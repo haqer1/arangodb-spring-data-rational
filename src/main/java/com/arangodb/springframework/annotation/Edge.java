@@ -116,6 +116,7 @@ public @interface Edge {
 	 *         for a collection with 100 000 000 documents. Currently, only the edge index respects this value, but
 	 *         other index types might follow in future ArangoDB versions. Changes (see below) are applied when the
 	 *         collection is loaded the next time.
+	 * 
 	 * @see Document#indexBuckets()
 	 */
 	int indexBuckets() default -1;
