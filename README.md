@@ -1,6 +1,6 @@
 ![ArangoDB-Logo](https://docs.arangodb.com/assets/arangodb_logo_2016_inverted.png)
 
-# Spring Data ArangoDB Supporting Canonical COLLECTION-PER-CLASS Type of Inheritance Rationally 
+# Spring Data ArangoDB (Supporting Canonical COLLECTION-PER-CLASS Type of Inheritance) Rational(ly) 
 
 One maintainer & 1 contributor in Spring Data ArangoDB project have refused to accept inheritance-related contributions implemented here. That decision has obviously
 (& without doubt) been driven not by rational considerations about technology, but by something else. In the process of blocking the contributions implemented here 
@@ -8,8 +8,8 @@ Spring Data ArangoDB upstream project has become tainted by extremely severe ine
 contributions implemented here, believes that what is now in the upstream is so irrational that it cannot be used as is, & therefore has to use a fork that 
 provides rational & efficient implementation for a main-stream persistence-related inheritance type like canonical COLLECTION-PER-CLASS approach (similar to 
 TABLE-PER-CLASS inheritance type in JPA). The expression canonical COLLECTION-PER-CLASS type of inheritance is used here not as something set in stone, but just to avoid 
-using a more ambiguous phrase like "classes that have a declared @Document annotation". Bottom line is that this implementation is now more efficient than upstream, 
-even for projects that don't use any persistence-related inheritance at all, because the upstream project has become inefficient & irrational for all 
+using a more ambiguous phrase like "classes that have a declared @Document annotation". **Bottom line is that this implementation is now more efficient than upstream, 
+even for projects that don't use any persistence-related inheritance at all**, because the upstream project has become inefficient & irrational for all 
 records (whether or not any persistence-related inheritance is involved in them). 
 
 * [Inefficiencies & other issues in Spring Data ArangoDB optimized by this implementation](#a-name-inefficiencies_optimized-a-inefficiencies-other-issues-in-spring-data-arangodb-optimized-resolved-by-this-implementation)
@@ -20,7 +20,7 @@ records (whether or not any persistence-related inheritance is involved in them)
     * [Cumulative effect of optimizations (for JOINs, multiple records matching a query, etc.)](#a-id-multiples-a-cumulative-effect-of-optimizations-for-joins-multiple-records-matching-a-query-etc)
     * [Cumulative efficiencies: simple sample calculations for various numbers of persisted entities](#a-id-calc-a-cumulative-efficiencies-simple-sample-calculations-for-various-numbers-of-persisted-entities)
 * [Brief history](#a-name-history-a-brief-history)
-* [Test report comparisons (showing that all upstream functionality is preserved, it is just optimized (not less, just better))(#test-report-comparisons-showing-that-all-upstream-functionality-is-preserved-it-is-just-optimized-not-less-just-better)
+* [Test report comparisons (showing that all upstream functionality is preserved, it is just optimized (not less, just better))](#a-name-testing-a-test-report-comparisons-showing-that-all-upstream-functionality-is-preserved-it-is-just-optimized-not-less-just-better)
 
 ## <a name="inefficiencies_optimized"></a>Inefficiencies & other issues in Spring Data ArangoDB OPTIMIZED/RESOLVED by this implementation
 1. Data pollution & disk space waste: amount of data persisted/processed, etc. when using this implementation is [up to 4 times smaller](#a-id-single-a-single-record).
@@ -114,6 +114,7 @@ So in this example, absolute size of data (stored, transferred, processed, etc.)
 as well as visual & perceptional aspects (simpler due to less clutter, less ambiguous), etc.).
 
 ### <a id="calc"></a>Cumulative efficiencies: simple sample calculations for various numbers of persisted entities
+Assuming average record size difference to be as shown in example above for [single record](#a-id-single-a-single-record):
 ![Alt text](docs/include/img/efficiencies.png?raw=true "Efficiencies")
 
 Conclusion: this implementation is significantly more efficient in terms of disk space, memory, bandwidth, & CPU usage, as well as in terms of latency, operational expenses, & productivity; & is better in terms of visual & perceptional aspects (simpler due to less clutter, less ambiguous), & in terms of 
@@ -135,7 +136,7 @@ wants to do with them (such as based on the alternative PR))), & closed it on Ma
 or to revert it: but the other developer requested the contributions here to not be merged, & that's how the PR got closed by the maintainer. Thus, to have rational
 support for canonical COLLECTION-PER-CLASS type of inheritance, there is a need for a customized implementation.
 
-## Test report comparisons (showing that all upstream functionality is preserved, it is just optimized (not less, just better))
+## <a name="testing"></a>Test report comparisons (showing that all upstream functionality is preserved, it is just optimized (not less, just better))
 ### Release 2.1.7 vs. 2.1.7.1-rational
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
 [Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
