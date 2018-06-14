@@ -1,6 +1,6 @@
 ![ArangoDB-Logo](https://docs.arangodb.com/assets/arangodb_logo_2016_inverted.png)
 
-# Spring Data ArangoDB (Supporting Canonical COLLECTION-PER-CLASS Type of Inheritance) Rational(ly) 
+# ArangoDB Spring Data (Supporting Canonical COLLECTION-PER-CLASS Type of Inheritance) Rational(ly) 
 
 One maintainer & 1 contributor in Spring Data ArangoDB project have refused to accept inheritance-related contributions implemented here. That decision has obviously
 (& without doubt) been driven not by rational considerations about technology, but by something else. In the process of blocking the contributions implemented here 
