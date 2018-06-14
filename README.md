@@ -137,18 +137,20 @@ support for canonical COLLECTION-PER-CLASS type of inheritance, there is a need 
 
 # Spring Data ArangoDB
 
-## Test report comparisons:
-### Optimization for edges and graph traversal branch
-[Modified (branch)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
-[Upstream (original)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/original/surefire-report.html)
+## Test report comparisons (showing that all upstream functionality is preserved, it is just optimized (not less, just better)):
+### Release 2.1.7 vs. 2.1.7.1-rational
+[Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
+[Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
+[Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/diff/)
 
 ### Optimization for edges and graph traversal branch
-[Modified (branch)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
-[Upstream (original)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/original/surefire-report.html)
+[Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
+[Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/original/surefire-report.html)
 
-### Optimization for edges and graph traversal branch
-[Modified (branch)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
-[Upstream (original)](docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/original/surefire-report.html)
+### PR 41 vs. equivalent upstream 2.1.4-SNAPSHOT
+[Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/issue_40/auto-testing/modified/surefire-report.html)
+[Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/issue_40/auto-testing/original/surefire-report.html)
+[Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/issue_40/auto-testing/diff/)
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data)
 
