@@ -125,6 +125,7 @@ DB records not being tightly-coupled with Java classes.
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
 [Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
 [Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/diff/)
+#### Feel free to repeat these steps using 2.1.9 (upstream) & 2.1.9.1 (-rational) tags.
 
 ### Optimization for edges and graph traversal branch
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
