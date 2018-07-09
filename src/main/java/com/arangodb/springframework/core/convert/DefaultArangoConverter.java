@@ -56,11 +56,13 @@ import org.springframework.util.StringUtils;
 
 import com.arangodb.springframework.annotation.Document;
 import com.arangodb.springframework.annotation.Edge;
+import com.arangodb.springframework.core.convert.resolver.LazyLoadingProxy;
 import com.arangodb.springframework.core.convert.resolver.ResolverFactory;
 import com.arangodb.springframework.core.mapping.ArangoPersistentEntity;
 import com.arangodb.springframework.core.mapping.ArangoPersistentProperty;
 import com.arangodb.springframework.core.mapping.ArangoSimpleTypes;
 import com.arangodb.springframework.core.util.InheritanceUtils;
+import com.arangodb.springframework.core.util.MetadataUtils;
 
 /**
  * @author Mark Vollmary
@@ -355,16 +357,19 @@ public class DefaultArangoConverter implements ArangoConverter {
 			return;
 		}
 
+		final Object entity = source instanceof LazyLoadingProxy ? ((LazyLoadingProxy) source).getEntity() : source;
+
 		if (sink instanceof DBDocumentEntity
-				&& conversions.hasCustomWriteTarget(source.getClass(), DBDocumentEntity.class)) {
-			final DBDocumentEntity result = conversionService.convert(source, DBDocumentEntity.class);
+				&& conversions.hasCustomWriteTarget(entity.getClass(), DBDocumentEntity.class)) {
+			final DBDocumentEntity result = conversionService.convert(entity, DBDocumentEntity.class);
 			((DBDocumentEntity) sink).putAll(result);
+			return;
 		}
 
-		final TypeInformation<?> type = ClassTypeInformation.from(ClassUtils.getUserClass(source.getClass()));
+		final TypeInformation<?> type = ClassTypeInformation.from(ClassUtils.getUserClass(entity.getClass()));
 		final TypeInformation<?> definedType = ClassTypeInformation.OBJECT;
 
-		write(source, type, sink, definedType);
+		write(entity, type, sink, definedType);
 	}
 
 	@SuppressWarnings("unchecked")
@@ -417,10 +422,12 @@ public class DefaultArangoConverter implements ArangoConverter {
 		if (source == null) {
 			return;
 		}
+
+		final TypeInformation<?> sourceType = ClassTypeInformation.from(source.getClass());
 		final String fieldName = property.getFieldName();
-		final TypeInformation<?> valueType = ClassTypeInformation.from(source.getClass());
+
 		if (property.getRef().isPresent()) {
-			if (valueType.isCollectionLike()) {
+			if (sourceType.isCollectionLike()) {
 				final Collection<Object> ids = new ArrayList<>();
 				for (final Object ref : createCollection(asCollection(source), property)) {
 					getId(ref).ifPresent(id -> ids.add(id));
@@ -435,33 +442,37 @@ public class DefaultArangoConverter implements ArangoConverter {
 			return;
 		}
 		if (property.getFrom().isPresent() || property.getTo().isPresent()) {
-			if (!valueType.isCollectionLike()) {
+			if (!sourceType.isCollectionLike()) {
 				getId(source).ifPresent(id -> sink.put(fieldName, id));
 			}
 			return;
 		}
-		if (conversions.isSimpleType(valueType.getType())) {
-			final Optional<Class<?>> customWriteTarget = conversions.getCustomWriteTarget(source.getClass());
-			final Class<?> targetType = customWriteTarget.orElseGet(() -> valueType.getType());
-			sink.put(fieldName, conversionService.convert(source, targetType));
+		
+		final Object entity = source instanceof LazyLoadingProxy ? ((LazyLoadingProxy) source).getEntity() : source;
+		final TypeInformation<?> entityType = (entity == source) ? sourceType : ClassTypeInformation.from(entity.getClass());
+		
+		if (conversions.isSimpleType(entityType.getType())) {
+			final Optional<Class<?>> customWriteTarget = conversions.getCustomWriteTarget(entityType.getType());
+			final Class<?> targetType = customWriteTarget.orElseGet(() -> entityType.getType());
+			sink.put(fieldName, conversionService.convert(entity, targetType));
 			return;
 		}
-		if (valueType.isCollectionLike()) {
+		if (entityType.isCollectionLike()) {
 			final DBEntity collection = new DBCollectionEntity();
-			writeCollection(source, collection, property.getTypeInformation());
+			writeCollection(entity, collection, property.getTypeInformation());
 			sink.put(fieldName, collection);
 			return;
 		}
-		if (valueType.isMap()) {
+		if (entityType.isMap()) {
 			final DBEntity map = new DBDocumentEntity();
-			writeMap((Map<Object, Object>) source, map, property.getTypeInformation());
+			writeMap((Map<Object, Object>) entity, map, property.getTypeInformation());
 			sink.put(fieldName, map);
 			return;
 		}
-		final ArangoPersistentEntity<?> persistentEntity = context.getRequiredPersistentEntity(valueType);
+		final ArangoPersistentEntity<?> persistentEntity = context.getRequiredPersistentEntity(entityType);
 		final DBEntity document = new DBDocumentEntity();
-		write(source, document, persistentEntity);
-		addTypeKeyIfNecessary(property.getTypeInformation(), source, document);
+		write(entity, document, persistentEntity);
+		addTypeKeyIfNecessary(property.getTypeInformation(), entity, document);
 		sink.put(fieldName, document);
 		return;
 	}
@@ -478,11 +489,11 @@ public class DefaultArangoConverter implements ArangoConverter {
 			if (conversions.isSimpleType(valueType)) {
 				final Optional<Class<?>> customWriteTarget = conversions.getCustomWriteTarget(valueType);
 				final Class<?> targetType = customWriteTarget.orElseGet(() -> valueType);
-				sink.put(convertMapKey(key), conversionService.convert(value, targetType));
+				sink.put(convertKey(key), conversionService.convert(value, targetType));
 			} else {
 				final DBEntity entity = createDBEntity(valueType);
 				write(value, ClassTypeInformation.from(valueType), entity, getNonNullMapValueType(definedType));
-				sink.put(convertMapKey(key), entity);
+				sink.put(convertKey(key), entity);
 			}
 		}
 	}
@@ -507,7 +518,18 @@ public class DefaultArangoConverter implements ArangoConverter {
 	}
 
 	private Optional<Object> getId(final Object source, final ArangoPersistentEntity<?> entity) {
-		return Optional.ofNullable(entity.getIdentifierAccessor(source).getIdentifier());
+		if (source instanceof LazyLoadingProxy) {
+			return Optional.of(((LazyLoadingProxy) source).getRefId());
+		}
+		
+		final Object id = entity.getIdentifierAccessor(source).getIdentifier();
+		if (id != null) {
+			return Optional.of(id);
+		}
+
+		final Optional<Object> optKey = entity.getKeyProperty()
+				.map(prop -> entity.getPropertyAccessor(source).getProperty(prop));
+		return optKey.map(key -> MetadataUtils.createIdFromCollectionAndKey(entity.getCollection(), convertKey(key)));
 	}
 
 	private Collection<?> createCollection(final Collection<?> source, final ArangoPersistentProperty property) {
@@ -606,7 +628,7 @@ public class DefaultArangoConverter implements ArangoConverter {
 		return false;
 	}
 	
-	private String convertMapKey(final Object key) {
+	private String convertKey(final Object key) {
 		if (key instanceof String) {
 			return (String) key;
 		}

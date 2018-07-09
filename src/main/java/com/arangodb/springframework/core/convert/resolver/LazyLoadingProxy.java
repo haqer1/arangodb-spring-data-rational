@@ -18,13 +18,27 @@
  * Copyright holder is ArangoDB GmbH, Cologne, Germany
  */
 
-package com.arangodb.springframework.config;
+package com.arangodb.springframework.core.convert.resolver;
 
 /**
- * @author Mark Vollmary
- *
+ * Allows identification of proxy classes and retrieval of the wrapped entity.
+ * 
+ * @author Christian Lechner
  */
-public enum TypeKeyStrategy {
+public interface LazyLoadingProxy {
 
-	ALWAYS, ONLY_IF_NECESSARY, NEVER
+	/**
+	 * Retrieves the entity wrapped by this proxy.
+	 *
+	 * @return
+	 */
+	Object getEntity();
+
+	/**
+	 * Returns the reference id of this proxy, which is the _id of the wrapped entity.
+	 *
+	 * @return
+	 */
+	String getRefId();
+
 }

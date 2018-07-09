@@ -22,7 +22,6 @@ package com.arangodb.springframework.core.convert.resolver;
 
 import java.util.Arrays;
 
-import org.springframework.core.convert.ConversionService;
 import org.springframework.data.util.TypeInformation;
 
 import com.arangodb.model.AqlQueryOptions;
@@ -40,8 +39,8 @@ public class RelationsResolver extends AbstractResolver<Relations>
 
 	private final ArangoOperations template;
 
-	public RelationsResolver(final ArangoOperations template, final ConversionService conversionService) {
-		super(conversionService);
+	public RelationsResolver(final ArangoOperations template) {
+		super(template.getConverter().getConversionService());
 		this.template = template;
 	}
 

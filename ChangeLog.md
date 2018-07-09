@@ -6,6 +6,52 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+### Added
+
+- added support for `@Key` fields on references `@Ref`/`@From`/`@To`
+- added support for saving entities lazy loaded
+
+  Entities loaded over `@Ref`/`@From`/`@To`/`@Relations` with `lazy` == `true` can now be saved back into the database.
+
+### Fixed
+
+- fixed `ArangoOperations#getVersion()` use configured database instead of `_system`
+
+## [2.2.1] - 2018-07-03
+
+### Fixed
+
+- fixed `ArangoOperations#upsert(T, UpsertStrategy)` (issue #92)
+  - Check `Persistable#isNew`
+- fixed `ArangoOperations#upsert(Iterable<T>, UpsertStrategy)` (issue #92)
+  - Check `Persistable#isNew`
+
+## [2.2.0] - 2018-07-02
+
+### Added
+
+- added `ArangoOperations#repsert(T)`
+- added `ArangoOperations#repsert(Iterable<T>, Class<T>)`
+- added support for streaming AQL cursors
+  - added `QueryOptions#stream()`
+- added `QueryOptions#memoryLimit()`
+- added support for satellite collections
+  - added `@Document#satellite()`
+  - added `@Edge#satellite()`
+
+## Changed
+
+- upgraded dependency arangodb-java-driver 4.6.0
+- changed `SimpleArangoRepository#save()` to use `ArangoOperations#repsert()` when ArangoDB version >= 3.4.0
+- changed `SimpleArangoRepository#saveAll()` to use `ArangoOperations#repsert()` when ArangoDB version >= 3.4.0
+- changed `ArangoOperations#upsert(T, UpsertStrategy)` to work with `@Id` in addition to `@Key`
+- changed `ArangoOperations#upsert(Iterable<T>, UpsertStrategy)` to work with `@Id` in addition to `@Key`
+
+### Deprecated
+
+- deprecated `ArangoOperations#upsert(T, UpsertStrategy)`
+- deprecated `ArangoOperations#upsert(Iterable<T>, UpsertStrategy)`
+
 ## [2.1.9] - 2018-06-26
 
 ### Fixed

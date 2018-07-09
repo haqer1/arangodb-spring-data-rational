@@ -32,10 +32,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.support.PersistenceExceptionTranslator;
-import org.springframework.data.mapping.model.ConvertingPropertyAccessor;
+import org.springframework.data.domain.Persistable;
+import org.springframework.data.mapping.PersistentPropertyAccessor;
 
 import com.arangodb.ArangoCollection;
 import com.arangodb.ArangoCursor;
@@ -169,7 +171,7 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 		final CollectionCreateOptions options) {
 
 		return collectionCache.computeIfAbsent(name, collName -> {
-			ArangoCollection collection = db().collection(collName);
+			final ArangoCollection collection = db().collection(collName);
 			try {
 				collection.getInfo();
 			} catch (final ArangoDBException e) {
@@ -292,7 +294,7 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 	public ArangoDBVersion getVersion() throws DataAccessException {
 		try {
 			if (version == null) {
-				version = arango.getVersion();
+				version = db().getVersion();
 			}
 			return version;
 		} catch (final ArangoDBException e) {
@@ -540,23 +542,22 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 	public <T> void upsert(final T value, final UpsertStrategy strategy) throws DataAccessException {
 		final Class<? extends Object> entityClass = value.getClass();
 		final ArangoPersistentEntity<?> entity = getConverter().getMappingContext().getPersistentEntity(entityClass);
-		final ArangoPersistentProperty idProperty = entity.getIdProperty();
-		if (idProperty != null) {
-			final ConvertingPropertyAccessor accessor = new ConvertingPropertyAccessor(
-					entity.getPropertyAccessor(value), converter.getConversionService());
-			final Object id = accessor.getProperty(idProperty);
-			if (id != null) {
-				switch (strategy) {
-				case UPDATE:
-					update(id.toString(), value);
-					break;
-				case REPLACE:
-				default:
-					replace(id.toString(), value);
-					break;
-				}
-				return;
+
+		final PersistentPropertyAccessor accessor = entity.getPropertyAccessor(value);
+		final Object id = entity.getKeyProperty().map(property -> accessor.getProperty(property)).orElseGet(() -> {
+			return entity.getIdProperty() != null ? accessor.getProperty(entity.getIdProperty()) : null;
+		});
+		if (id != null && (!(value instanceof Persistable) || !Persistable.class.cast(value).isNew())) {
+			switch (strategy) {
+			case UPDATE:
+				update(id.toString(), value);
+				break;
+			case REPLACE:
+			default:
+				replace(id.toString(), value);
+				break;
 			}
+			return;
 		}
 		insert(value);
 	}
@@ -564,22 +565,24 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 	@SuppressWarnings("unchecked")
 	@Override
 	public <T> void upsert(final Iterable<T> value, final UpsertStrategy strategy) throws DataAccessException {
-		Class<T> entityClass = null;
-		ArangoPersistentEntity<?> entity = null;
-		ArangoPersistentProperty idProperty = null;
+		final Optional<T> first = StreamSupport.stream(value.spliterator(), false).findFirst();
+		if (!first.isPresent()) {
+			return;
+		}
+		final Class<T> entityClass = (Class<T>) first.get().getClass();
+		final ArangoPersistentEntity<?> entity = getConverter().getMappingContext().getPersistentEntity(entityClass);
+		final ArangoPersistentProperty idProperty = entity.getIdProperty();
+		final Optional<ArangoPersistentProperty> keyProperty = entity.getKeyProperty();
+
 		final Collection<T> withId = new ArrayList<>();
 		final Collection<T> withoutId = new ArrayList<>();
 		for (final T e : value) {
-			if (entityClass == null) {
-				entityClass = (Class<T>) e.getClass();
-				entity = getConverter().getMappingContext().getPersistentEntity(entityClass);
-				idProperty = entity.getIdProperty();
-			}
-			if (idProperty != null) {
-				final ConvertingPropertyAccessor accessor = new ConvertingPropertyAccessor(
-						entity.getPropertyAccessor(e), converter.getConversionService());
-				final Object id = accessor.getProperty(idProperty);
-				if (id != null) {
+			if (keyProperty.isPresent() || idProperty != null) {
+				final PersistentPropertyAccessor accessor = entity.getPropertyAccessor(e);
+				final Object id = keyProperty.map(property -> accessor.getProperty(property)).orElseGet(() -> {
+					return idProperty != null ? accessor.getProperty(entity.getIdProperty()) : null;
+				});
+				if (id != null && (!(e instanceof Persistable) || !Persistable.class.cast(e).isNew())) {
 					withId.add(e);
 					continue;
 				}
@@ -600,6 +603,16 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 				break;
 			}
 		}
+	}
+
+	@Override
+	public <T> void repsert(final T value) throws DataAccessException {
+		insert(value, new DocumentCreateOptions().overwrite(true));
+	}
+
+	@Override
+	public <T> void repsert(final Iterable<T> value, final Class<T> entityClass) throws DataAccessException {
+		insert(value, entityClass, new DocumentCreateOptions().overwrite(true));
 	}
 
 	private <T> void updateDBFields(final Iterable<T> values, final MultiDocumentEntity<? extends DocumentEntity> res) {
@@ -623,8 +636,7 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 
 	private void updateDBFields(final Object value, final DocumentEntity documentEntity) {
 		final ArangoPersistentEntity<?> entity = converter.getMappingContext().getPersistentEntity(value.getClass());
-		final ConvertingPropertyAccessor accessor = new ConvertingPropertyAccessor(entity.getPropertyAccessor(value),
-				converter.getConversionService());
+		final PersistentPropertyAccessor accessor = entity.getPropertyAccessor(value);
 		final ArangoPersistentProperty idProperty = entity.getIdProperty();
 		if (idProperty != null) {
 			accessor.setProperty(idProperty, documentEntity.getId());
