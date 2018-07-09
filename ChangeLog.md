@@ -6,17 +6,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
-### Added
-
-- added support for `@Key` fields on references `@Ref`/`@From`/`@To`
-- added support for saving entities lazy loaded
-
-  Entities loaded over `@Ref`/`@From`/`@To`/`@Relations` with `lazy` == `true` can now be saved back into the database.
-
-### Fixed
-
-- fixed `ArangoOperations#getVersion()` use configured database instead of `_system`
-
 ## [2.2.1] - 2018-07-03
 
 ### Fixed

@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.core.convert.ConversionService;
 import org.springframework.data.util.TypeInformation;
 
 import com.arangodb.springframework.annotation.Ref;
@@ -40,8 +41,8 @@ public class RefResolver extends AbstractResolver<Ref>
 
 	private final ArangoOperations template;
 
-	public RefResolver(final ArangoOperations template) {
-		super(template.getConverter().getConversionService());
+	public RefResolver(final ArangoOperations template, final ConversionService conversionService) {
+		super(conversionService);
 		this.template = template;
 	}
 
