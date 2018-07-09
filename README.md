@@ -14,7 +14,8 @@ records (whether or not any persistence-related inheritance is involved in them)
 
 * [Inefficiencies & other issues in Spring Data ArangoDB optimized by this implementation](#inefficiencies_optimized)
     * [Visual examples of optimized inefficiencies](#visuals)
-       * [Single record](#single)
+       * [Single document record](#single)
+       * [Edge collection record (graph traversal use-case)](#edge)
        * [A record for a class that DOESN'T extend another entity/document, & is not extended](#noinheritance)
        * [A record for a class that has a property of type List with 2 entities/documents in it](#list)
     * [Cumulative effect of optimizations (for JOINs, multiple records matching a query, etc.)](#multiples)
@@ -42,13 +43,21 @@ value attribute (the former prevents the latter from freely decoupling DB record
 DB records if the name of the class is changed).
 
 ### <a id="visuals"></a>Visual examples of optimized inefficiencies
-#### <a id="single"></a>Single record
+#### <a id="single"></a>Single document record
 
 Absurd in upstream Spring Data ArangoDB:
 ![Alt text](docs/include/img/unreasonable.png?raw=true "Absurd")
 
 Normal record provided with this implementation (the size is up to 3.69 times smaller (35/129 bytes)):
 ![Alt text](docs/include/img/reasonable.png?raw=true "Normal")
+
+#### <a id="edge"></a>Edge collection record (graph traversal use-case)
+
+Absurd in upstream Spring Data ArangoDB:
+![Alt text](docs/include/img/edge_absurd.png?raw=true "Absurd")
+
+Normal record provided with this implementation (in this example, the size is 1.97 times smaller (59/116 bytes)):
+![Alt text](docs/include/img/edge.png?raw=true "Normal")
 
 #### <a id="noinheritance"></a>A record for a class that DOESN'T extend another entity/document, & is not extended
 
@@ -125,7 +134,7 @@ DB records not being tightly-coupled with Java classes.
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
 [Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
 [Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/diff/)
-**Feel free to repeat the steps shown in Diff using 2.1.9 (upstream) & 2.1.9.1 (-rational) tags.**
+**Feel free to repeat the steps shown in Diff using 2.2.1 (upstream) & 2.2.1.1 (-rational) tags.**
 
 ### Optimization for edges and graph traversal branch
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
@@ -158,8 +167,10 @@ support for canonical COLLECTION-PER-CLASS type of inheritance, there is a need 
 - [Reference](docs/Drivers/SpringData/Reference/README.md)
 
 ## Learn more
-* [ArangoDB](https://www.arangodb.com/)
-* [Demo](https://github.com/arangodb/spring-data-demo)
-* [JavaDoc 1.0.0](http://arangodb.github.io/spring-data/javadoc-1_0/index.html)
-* [JavaDoc 2.0.0](http://arangodb.github.io/spring-data/javadoc-2_0/index.html)
-* [JavaDoc Java driver](http://arangodb.github.io/arangodb-java-driver/javadoc-4_3/index.html)
+
+- [ArangoDB](https://www.arangodb.com/)
+- [Demo](https://github.com/arangodb/spring-data-demo)
+- [JavaDoc 1.0.0](http://arangodb.github.io/spring-data/javadoc-1_0/index.html)
+- [JavaDoc 2.0.0](http://arangodb.github.io/spring-data/javadoc-2_0/index.html)
+- [JavaDoc Java driver](http://arangodb.github.io/arangodb-java-driver/javadoc-4_3/index.html)
+- [Changelog](ChangeLog.md)
