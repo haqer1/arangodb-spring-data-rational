@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [2.2.1.1] (-rational) - 2018-07-09
+
+### Enhanced
+* merged: optimization for edges and graph traversals
+* merged: major optimization for classes with declared @Document annotation (in comparison to upstream (including support for multiple classes per single collection))
+
 ## [2.2.1] - 2018-07-03
 
 ### Fixed
@@ -41,6 +47,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - deprecated `ArangoOperations#upsert(T, UpsertStrategy)`
 - deprecated `ArangoOperations#upsert(Iterable<T>, UpsertStrategy)`
 
+## [2.1.9.1] (-rational) - 2018-06-26
+
+### Enhanced
+* merged: optimization for edges and graph traversals
+* merged: major optimization for classes with declared @Document annotation (in comparison to upstream (including support for multiple classes per single collection))
+
 ## [2.1.9] - 2018-06-26
 
 ### Fixed
@@ -55,7 +67,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   - fixed `ArangoDB#aquireHostList(true)` with authentication
   - added support for custom serializer
 
-## [2.1.7.1-rational] (2018-06-14)
+## [2.1.7.1-rational] - 2018-06-14
 
 ### Enhanced
 
