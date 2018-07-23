@@ -120,7 +120,7 @@ public abstract class AbstractArangoQuery implements RepositoryQuery {
 	 * 
 	 * @param oldStatic
 	 * @param newDynamic
-	 * @return
+	 * @return	options to be used in AQL query
 	 */
 	protected AqlQueryOptions mergeQueryOptions(final AqlQueryOptions oldStatic, final AqlQueryOptions newDynamic) {
 		if (oldStatic == null) {
