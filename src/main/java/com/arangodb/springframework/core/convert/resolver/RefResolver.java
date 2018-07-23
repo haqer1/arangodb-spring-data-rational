@@ -33,7 +33,6 @@ import com.arangodb.springframework.core.ArangoOperations;
 /**
  * @author Mark Vollmary
  * @author Reşat SABIQ
- * @author Christian Lechner
  *
  */
 public class RefResolver extends AbstractResolver<Ref>
