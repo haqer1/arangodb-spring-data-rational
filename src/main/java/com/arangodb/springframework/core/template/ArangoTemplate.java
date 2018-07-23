@@ -84,6 +84,7 @@ import com.arangodb.util.MapBuilder;
  * @author Christian Lechner
  * @author Reşat SABIQ
  */
+@SuppressWarnings("deprecation")
 public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 
 	private volatile ArangoDBVersion version;
@@ -294,7 +295,7 @@ public class ArangoTemplate implements ArangoOperations, CollectionCallback {
 	public ArangoDBVersion getVersion() throws DataAccessException {
 		try {
 			if (version == null) {
-				version = arango.getVersion();
+				version = db().getVersion();
 			}
 			return version;
 		} catch (final ArangoDBException e) {

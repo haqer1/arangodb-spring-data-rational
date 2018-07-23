@@ -68,6 +68,7 @@ import com.arangodb.springframework.core.util.MetadataUtils;
  * @author Christian Lechner
  * @author Reşat SABIQ
  */
+@SuppressWarnings("deprecation")
 public class DefaultArangoConverter implements ArangoConverter {
 
 	private static final String _ID = "_id";
