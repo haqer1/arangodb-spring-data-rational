@@ -122,6 +122,8 @@ So in this example, absolute size of data (stored, transferred, processed, etc.)
 (i.e., 3 documents as in example 2. + 5 more for the list). Thus smaller size per record provides a cumulative effect for operations involving JOINs or multiple records matching a query, etc. (with propagating efficiencies & benefits in terms of memory, bandwidth, CPU, latency, operational expenses, productivity, 
 as well as visual & perceptional aspects (simpler due to less clutter, less ambiguous), etc.).
 
+3. For a graph of x entities with x edges, the effect would also be cumulative (the effect for x entities AND the effect for x edges): potentially doubling some of the effects (e.g., amount of storage used) for graph traversal use-cases.
+
 ### <a id="calc"></a>Cumulative efficiencies: simple sample calculations for various numbers of persisted entities
 Assuming average record size difference to be as shown in example above for [single record](#single):
 ![Alt text](docs/include/img/efficiencies.png?raw=true "Efficiencies")
@@ -134,7 +136,7 @@ DB records not being tightly-coupled with Java classes.
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
 [Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
 [Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/diff/)
-**Feel free to repeat the steps shown in Diff using 2.2.1 (upstream) & 2.2.1.1 (-rational) tags.**
+**Feel free to repeat the steps shown in Diff using 2.3.0 (upstream) & 2.3.0.1 (-rational) tags.**
 
 ### Optimization for edges and graph traversal branch
 [Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
@@ -158,8 +160,8 @@ storing the fully-qualified class name is 100% unnecessary, that alternative PR 
 alternative PR had been clearly shown, the maintainer of ArangoDB Spring Data refused to merge the original pull request (which had been updated to avoid persistence of the fully-qualified
 class name for @Documents (because it's unnecessary & causes many issues & inefficiencies), leaving other cases as is (i.e., leaving them up to whatever ArangoDB Spring Data in general 
 wants to do with them (such as based on the alternative PR))), & closed it on May 22nd. To make it clear, the developer of this fork never made a request to not merge the alternative PR, 
-or to revert it: but the other developer requested the contributions here to not be merged, & that's how the PR got closed by the maintainer. Thus, to have rational
-support for canonical COLLECTION-PER-CLASS type of inheritance, there is a need for a customized implementation.
+or to revert it: but the other developer requested the contributions here to not be merged, & that's how the PR got closed by the maintainer. The maintainer also has taken (on July 2, 2018) an [insane position](https://github.com/arangodb/spring-data/issues/71) of refusing to accept a PR that removes fully-qualified class name storage, retrieval, & processing for `@Edge`s without having been able to provide a single (!) use-case for which fully-qualified class names need to be stored for `@Edge`s. Thus, to have
+a rational mapping implementation for ArangoDB spring-data, there is a need for an alternative implementation: hence, this project.
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data)
 
