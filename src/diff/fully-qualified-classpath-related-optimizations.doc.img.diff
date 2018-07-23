@@ -1,0 +1,37 @@
+diff --git a/docs/include/img/aggregate.png b/docs/include/img/aggregate.png
+new file mode 100644
+index 0000000..d419829
+Binary files /dev/null and b/docs/include/img/aggregate.png differ
+diff --git a/docs/include/img/aggregate_absurd.png b/docs/include/img/aggregate_absurd.png
+new file mode 100644
+index 0000000..a39dc0e
+Binary files /dev/null and b/docs/include/img/aggregate_absurd.png differ
+diff --git a/docs/include/img/aggregate_with_collection.png b/docs/include/img/aggregate_with_collection.png
+new file mode 100644
+index 0000000..511701b
+Binary files /dev/null and b/docs/include/img/aggregate_with_collection.png differ
+diff --git a/docs/include/img/aggregate_with_collection_absurd.png b/docs/include/img/aggregate_with_collection_absurd.png
+new file mode 100644
+index 0000000..ef96a2a
+Binary files /dev/null and b/docs/include/img/aggregate_with_collection_absurd.png differ
+diff --git a/docs/include/img/edge.png b/docs/include/img/edge.png
+new file mode 100644
+index 0000000..3117060
+Binary files /dev/null and b/docs/include/img/edge.png differ
+diff --git a/docs/include/img/edge_absurd.png b/docs/include/img/edge_absurd.png
+new file mode 100644
+index 0000000..f3dee35
+Binary files /dev/null and b/docs/include/img/edge_absurd.png differ
+diff --git a/docs/include/img/efficiencies.png b/docs/include/img/efficiencies.png
+new file mode 100644
+index 0000000..3d02375
+Binary files /dev/null and b/docs/include/img/efficiencies.png differ
+diff --git a/docs/include/img/reasonable.png b/docs/include/img/reasonable.png
+new file mode 100644
+index 0000000..1b5b789
+Binary files /dev/null and b/docs/include/img/reasonable.png differ
+diff --git a/docs/include/img/unreasonable.png b/docs/include/img/unreasonable.png
+new file mode 100644
+index 0000000..b67843f
+Binary files /dev/null and b/docs/include/img/unreasonable.png differ
+

@@ -1,0 +1,1134 @@
+diff --git a/pom.xml b/pom.xml
+index 8c43df9..5810502 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -3,12 +3,12 @@
+ 	<modelVersion>4.0.0</modelVersion>
+ 
+ 	<groupId>com.arangodb</groupId>
+-	<artifactId>arangodb-spring-data</artifactId>
+-	<version>2.2.1</version>
++	<artifactId>arangodb-spring-data-rational</artifactId>
++	<version>2.2.1.1</version>
+ 	<inceptionYear>2017</inceptionYear>
+ 	<packaging>jar</packaging>
+ 
+-	<name>arangodb-spring-data</name>
++	<name>arangodb-spring-data-rational</name>
+ 	<description>ArangoDB Spring Data</description>
+ 	<url>http://maven.apache.org</url>
+ 
+@@ -43,6 +43,12 @@
+ 			<url>https://github.com/mpv1989</url>
+ 		</developer>
+ 	</developers>
++	<contributors>
++		<contributor>
++			<name>Reşat SABIQ</name>
++			<url>https://github.com/haqer1</url>
++		</contributor>
++	</contributors>
+ 
+ 	<distributionManagement>
+ 		<snapshotRepository>
+@@ -68,6 +74,14 @@
+ 			<id>spring-libs-snapshot</id>
+ 			<url>https://repo.spring.io/libs-snapshot</url>
+ 		</repository>
++		<repository>
++			<snapshots>
++				<enabled>false</enabled>
++			</snapshots>
++			<id>central</id>
++			<name>Maven Repository Switchboard</name>
++			<url>http://repo1.maven.org/maven2</url>
++		</repository>
+ 	</repositories>
+ 
+ 	<profiles>
+diff --git a/src/main/java/com/arangodb/springframework/config/ArangoEntityClassScanner.java b/src/main/java/com/arangodb/springframework/config/ArangoEntityClassScanner.java
+index 8f5fb0a..913fe81 100644
+--- a/src/main/java/com/arangodb/springframework/config/ArangoEntityClassScanner.java
++++ b/src/main/java/com/arangodb/springframework/config/ArangoEntityClassScanner.java
+@@ -27,6 +27,7 @@ import java.util.Set;
+ import org.springframework.beans.factory.config.BeanDefinition;
+ import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+ import org.springframework.core.type.filter.AnnotationTypeFilter;
++import org.springframework.core.type.filter.AssignableTypeFilter;
+ import org.springframework.data.annotation.TypeAlias;
+ import org.springframework.util.ClassUtils;
+ import org.springframework.util.StringUtils;
+@@ -36,41 +37,53 @@ import com.arangodb.springframework.annotation.Edge;
+ 
+ /**
+  * @author Mark Vollmary
++ * @author Reşat SABIQ
+  * @author Christian Lechner
+- *
+  */
+ public class ArangoEntityClassScanner {
+ 
+ 	@SuppressWarnings("unchecked")
+ 	private static final Class<? extends Annotation>[] ENTITY_ANNOTATIONS = new Class[] { Document.class, Edge.class };
+-	
+ 	@SuppressWarnings("unchecked")
+ 	private static final Class<? extends Annotation>[] ADDITIONAL_ANNOTATIONS = new Class[] { TypeAlias.class };
++	private static final AnnotationTypeFilter[] ANNOTATION_TYPE_FILTERS = new AnnotationTypeFilter[ENTITY_ANNOTATIONS.length+ADDITIONAL_ANNOTATIONS.length];
++	static {
++		for (byte i = 0; i < ENTITY_ANNOTATIONS.length; i++)
++			ANNOTATION_TYPE_FILTERS[i] = new AnnotationTypeFilter(ENTITY_ANNOTATIONS[i]);
++		for (byte i = 0; i < ADDITIONAL_ANNOTATIONS.length; i++)
++			ANNOTATION_TYPE_FILTERS[ENTITY_ANNOTATIONS.length+i] = new AnnotationTypeFilter(ADDITIONAL_ANNOTATIONS[i]);
++	}
+ 
+ 	public static Set<Class<?>> scanForEntities(final String... basePackages) throws ClassNotFoundException {
++		return scanForEntities(null, basePackages);
++	}
++	
++	public static Set<Class<?>> scanForEntities(final Class<?> assignableTo, final String... basePackages) throws ClassNotFoundException {
+ 		final Set<Class<?>> entities = new HashSet<>();
+ 		for (final String basePackage : basePackages) {
+-			entities.addAll(scanForEntities(basePackage));
++			entities.addAll(scanForEntities(assignableTo, basePackage));
+ 		}
+ 		return entities;
+ 	}
+ 
+ 	public static Set<Class<?>> scanForEntities(final String basePackage) throws ClassNotFoundException {
++		return scanForEntities(null, basePackage);
++	}
++
++	public static Set<Class<?>> scanForEntities(final Class<?> assignableTo, final String basePackage) throws ClassNotFoundException {
+ 		final Set<Class<?>> entities = new HashSet<>();
+ 		if (StringUtils.hasText(basePackage)) {
+ 			final ClassPathScanningCandidateComponentProvider componentProvider = new ClassPathScanningCandidateComponentProvider(
+ 					false);
+-			for (final Class<? extends Annotation> annotationType : ENTITY_ANNOTATIONS) {
+-				componentProvider.addIncludeFilter(new AnnotationTypeFilter(annotationType));
+-			}
+-			for (final Class<? extends Annotation> annotationType : ADDITIONAL_ANNOTATIONS) {
+-				componentProvider.addIncludeFilter(new AnnotationTypeFilter(annotationType));
++			for (final AnnotationTypeFilter annotationTypeFilter : ANNOTATION_TYPE_FILTERS) {
++				componentProvider.addIncludeFilter(annotationTypeFilter);
+ 			}
++			if (assignableTo != null)
++				componentProvider.addIncludeFilter(new AssignableTypeFilter(assignableTo));
+ 			for (final BeanDefinition definition : componentProvider.findCandidateComponents(basePackage)) {
+ 				entities.add(ClassUtils.forName(definition.getBeanClassName(), null));
+ 			}
+ 		}
+ 		return entities;
+ 	}
+-
+ }
+diff --git a/src/main/java/com/arangodb/springframework/core/convert/DefaultArangoConverter.java b/src/main/java/com/arangodb/springframework/core/convert/DefaultArangoConverter.java
+index f450b33..287c0cf 100644
+--- a/src/main/java/com/arangodb/springframework/core/convert/DefaultArangoConverter.java
++++ b/src/main/java/com/arangodb/springframework/core/convert/DefaultArangoConverter.java
+@@ -27,6 +27,7 @@ import java.util.ArrayList;
+ import java.util.Arrays;
+ import java.util.Collection;
+ import java.util.Collections;
++import java.util.LinkedList;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.Map.Entry;
+@@ -51,11 +52,16 @@ import org.springframework.data.util.ClassTypeInformation;
+ import org.springframework.data.util.TypeInformation;
+ import org.springframework.util.ClassUtils;
+ import org.springframework.util.CollectionUtils;
++import org.springframework.util.StringUtils;
+ 
++import com.arangodb.springframework.annotation.Document;
++import com.arangodb.springframework.annotation.Edge;
+ import com.arangodb.springframework.core.convert.resolver.ResolverFactory;
+ import com.arangodb.springframework.core.mapping.ArangoPersistentEntity;
+ import com.arangodb.springframework.core.mapping.ArangoPersistentProperty;
+ import com.arangodb.springframework.core.mapping.ArangoSimpleTypes;
++import com.arangodb.springframework.core.util.InheritanceUtils;
++import com.arangodb.springframework.core.util.MetadataUtils;
+ 
+ /**
+  * @author Mark Vollmary
+@@ -260,6 +266,7 @@ public class DefaultArangoConverter implements ArangoConverter {
+ 		final ArangoPersistentProperty property,
+ 		final Annotation annotation) {
+ 		return resolverFactory.getReferenceResolver(annotation).flatMap(resolver -> {
++			TypeInformation<?> typeInfo = property.getTypeInformation();
+ 			if (property.isCollectionLike()) {
+ 				final Collection<String> ids;
+ 				try {
+@@ -268,18 +275,51 @@ public class DefaultArangoConverter implements ArangoConverter {
+ 					throw new MappingException(
+ 							"Collection of type String expected for references but found type " + source.getClass());
+ 				}
+-				return Optional.ofNullable(resolver.resolveMultiple(ids, property.getTypeInformation(), annotation));
++
++				// Inheritance should be supported for collections also, & a collection is currently allowed to contain more than 1 type:
++				TypeInformation<?> itemTypeInfo = getNonNullComponentType(typeInfo);
++				Class<?> type = itemTypeInfo.getType();
++				return Optional.ofNullable(resolver.resolveMultiple(ids, typeInfo, annotation, id -> {
++						Class<?> inheritanceAwareType = InheritanceUtils.determineInheritanceAwareReferenceType(id, type, getMappingContext());
++						// Use original type for single-collection cases:
++						boolean singleCollection = isSingleCollectionForMultipleClasses(inheritanceAwareType);
++						if (singleCollection)
++							return itemTypeInfo;
++						return toTypeInfoAndAddToContextIfNeeded(inheritanceAwareType, type, itemTypeInfo);
++					}));
+ 			} else {
+ 				if (!(source instanceof String)) {
+ 					throw new MappingException(
+ 							"Type String expected for reference but found type " + source.getClass());
+ 				}
+-				return Optional
+-						.ofNullable(resolver.resolveOne(source.toString(), property.getTypeInformation(), annotation));
++				
++				Class<?> type = property.getType();
++				Class<?> inheritanceAwareType = InheritanceUtils.determineInheritanceAwareReferenceType(source, type, getMappingContext());
++				TypeInformation<?> inheritanceAwareTypeInfo = toTypeInfoAndAddToContextIfNeeded(inheritanceAwareType, type, typeInfo);
++
++				return Optional.ofNullable(resolver.resolveOne(source.toString(), inheritanceAwareTypeInfo, annotation));
+ 			}
+ 		});
+ 	}
+ 
++	/**
++	 * If {@code typeData} is different from {@code orig} type, then add to context if it's not already there.
++	 * 
++	 * @param type			needed type.
++	 * @param origType		original type.
++	 * @param origTypeInfo	original type info.
++	 * @return origType if orig & origType are equal, {@link TypeInformation} for {@code type} otherwise.
++	 */
++	private TypeInformation<?> toTypeInfoAndAddToContextIfNeeded(final Class<?> type, final Class<?> origType, final TypeInformation<?> origTypeInfo) {
++		//  With Pair it would be a bit lighter on CPU, but would involve a bit more GC:
++		if (!type.equals(origType)) {
++			// This caches it for better performance going forward:
++			getMappingContext().getPersistentEntity(type);
++			return ClassTypeInformation.from(type);
++		}
++		return origTypeInfo;
++	}
++
+ 	private <A extends Annotation> Optional<Object> readRelation(
+ 		final Object parentId,
+ 		final Object source,
+@@ -520,10 +560,53 @@ public class DefaultArangoConverter implements ArangoConverter {
+ 		final Class<?> referenceType = definedType != null ? definedType.getType() : Object.class;
+ 		final Class<?> valueType = ClassUtils.getUserClass(value.getClass());
+ 		if (!valueType.equals(referenceType)) {
+-			typeMapper.writeType(valueType, sink);
++			if (isTypeInfoNecessary(valueType))
++				typeMapper.writeType(valueType, sink);
+ 		}
+ 	}
+-
++	
++	private boolean isTypeInfoNecessary(final Class<?> type) {
++		// For any class with a declared @Document or @Edge annotation there is no need to store any type-related properties/columns, because 
++		// there is already an entire COLLECTION/TABLE dedicated to the class involved (with the exception of single-collection for multiple classes case):
++		return (type.getDeclaredAnnotation(Document.class) == null || isSingleCollectionForMultipleClasses(type))
++				&& type.getDeclaredAnnotation(Edge.class) == null;
++	}
++
++	private boolean isSingleCollectionForMultipleClasses(final Class<?> type) {
++		Document doc = type.getAnnotation(Document.class);
++		if (doc == null)
++			return false;
++		String customCollectionName = doc.value();
++
++		if (StringUtils.isEmpty(customCollectionName))
++			return false;
++		ArangoPersistentEntity<?> ape = context.getRequiredPersistentEntity(type);
++		Boolean sc = ape.getSingleCollectionForMultipleClasses();
++		if (Boolean.TRUE.equals(sc))
++			return true;
++		LinkedList<ArangoPersistentEntity<?>> overlappingSingleCollectionEntities = null;
++		for (ArangoPersistentEntity<?> entityNode : context.getPersistentEntities()) {
++			Class<?> t = entityNode.getType();
++			Document d = t.getDeclaredAnnotation(Document.class);
++			if (d != null) {
++				String c = d.value();
++				if (!StringUtils.isEmpty(c) && customCollectionName.equals(c) && !type.equals(t)) {
++					if (overlappingSingleCollectionEntities == null)
++						overlappingSingleCollectionEntities = new LinkedList<>();
++					overlappingSingleCollectionEntities.add(entityNode);
++				}
++			}
++		}
++		if (overlappingSingleCollectionEntities != null) {
++			for (ArangoPersistentEntity<?> persistentEntity : overlappingSingleCollectionEntities) {
++				persistentEntity.setSingleCollectionForMultipleClasses(Boolean.TRUE);
++			}
++			ape.setSingleCollectionForMultipleClasses(Boolean.TRUE);
++			return true;
++		}
++		return false;
++	}
++	
+ 	private String convertMapKey(final Object key) {
+ 		if (key instanceof String) {
+ 			return (String) key;
+diff --git a/src/main/java/com/arangodb/springframework/core/convert/resolver/RefResolver.java b/src/main/java/com/arangodb/springframework/core/convert/resolver/RefResolver.java
+index 4ab5f2e..50e8048 100644
+--- a/src/main/java/com/arangodb/springframework/core/convert/resolver/RefResolver.java
++++ b/src/main/java/com/arangodb/springframework/core/convert/resolver/RefResolver.java
+@@ -21,6 +21,7 @@
+ package com.arangodb.springframework.core.convert.resolver;
+ 
+ import java.util.Collection;
++import java.util.function.Function;
+ import java.util.stream.Collectors;
+ 
+ import org.springframework.core.convert.ConversionService;
+@@ -31,6 +32,7 @@ import com.arangodb.springframework.core.ArangoOperations;
+ 
+ /**
+  * @author Mark Vollmary
++ * @author Reşat SABIQ
+  *
+  */
+ public class RefResolver extends AbstractResolver<Ref>
+@@ -49,8 +51,8 @@ public class RefResolver extends AbstractResolver<Ref>
+ 	}
+ 
+ 	@Override
+-	public Object resolveMultiple(final Collection<String> ids, final TypeInformation<?> type, final Ref annotation) {
+-		return ids.stream().map(id -> resolveOne(id, getNonNullComponentType(type), annotation))
++	public Object resolveMultiple(final Collection<String> ids, final TypeInformation<?> type, final Ref annotation, Function<String, TypeInformation<?>> inheritanceHelper) {
++		return ids.stream().map(id -> resolveOne(id, inheritanceHelper.apply(id), annotation))
+ 				.collect(Collectors.toList());
+ 	}
+ 
+diff --git a/src/main/java/com/arangodb/springframework/core/convert/resolver/ReferenceResolver.java b/src/main/java/com/arangodb/springframework/core/convert/resolver/ReferenceResolver.java
+index be370a6..544f075 100644
+--- a/src/main/java/com/arangodb/springframework/core/convert/resolver/ReferenceResolver.java
++++ b/src/main/java/com/arangodb/springframework/core/convert/resolver/ReferenceResolver.java
+@@ -22,17 +22,19 @@ package com.arangodb.springframework.core.convert.resolver;
+ 
+ import java.lang.annotation.Annotation;
+ import java.util.Collection;
++import java.util.function.Function;
+ 
+ import org.springframework.data.util.TypeInformation;
+ 
+ /**
+  * @author Mark Vollmary
++ * @author Reşat SABIQ
+  *
+  */
+ public interface ReferenceResolver<A extends Annotation> {
+ 
+ 	Object resolveOne(String id, TypeInformation<?> type, A annotation);
+ 
+-	Object resolveMultiple(Collection<String> ids, TypeInformation<?> type, A annotation);
++	Object resolveMultiple(Collection<String> ids, TypeInformation<?> type, A annotation, Function<String, TypeInformation<?>> inheritanceHelper);
+ 
+-}
++}
+\ No newline at end of file
+diff --git a/src/main/java/com/arangodb/springframework/core/mapping/ArangoPersistentEntity.java b/src/main/java/com/arangodb/springframework/core/mapping/ArangoPersistentEntity.java
+index 273357e..b80f514 100644
+--- a/src/main/java/com/arangodb/springframework/core/mapping/ArangoPersistentEntity.java
++++ b/src/main/java/com/arangodb/springframework/core/mapping/ArangoPersistentEntity.java
+@@ -35,6 +35,7 @@ import com.arangodb.springframework.annotation.SkiplistIndex;
+ 
+ /**
+  * @author Mark Vollmary
++ * @author Reşat SABIQ
+  * @param <T>
+  *
+  */
+@@ -69,4 +70,14 @@ public interface ArangoPersistentEntity<T>
+ 
+ 	Collection<ArangoPersistentProperty> getFulltextIndexedProperties();
+ 
++	/**
++	 * @return	true if single-collection for multiple classes case (which could be used to avoid further verification of that aspect), false otherwise.
++	 */
++	Boolean getSingleCollectionForMultipleClasses();
++	
++	/**
++	 * Marks as single-collection for multiple classes case (for more efficient processing subsequently).
++	 * @param b	true to mark as single-collection for multiple classes case (false or null otherwise).
++	 */
++	void setSingleCollectionForMultipleClasses(Boolean b);
+ }
+diff --git a/src/main/java/com/arangodb/springframework/core/mapping/DefaultArangoPersistentEntity.java b/src/main/java/com/arangodb/springframework/core/mapping/DefaultArangoPersistentEntity.java
+index f458844..95c7a6d 100644
+--- a/src/main/java/com/arangodb/springframework/core/mapping/DefaultArangoPersistentEntity.java
++++ b/src/main/java/com/arangodb/springframework/core/mapping/DefaultArangoPersistentEntity.java
+@@ -61,6 +61,7 @@ import com.arangodb.springframework.annotation.SkiplistIndexes;
+ 
+ /**
+  * @author Mark Vollmary
++ * @author Reşat SABIQ
+  * @param <T>
+  *
+  */
+@@ -84,7 +85,8 @@ public class DefaultArangoPersistentEntity<T> extends BasicPersistentEntity<T, A
+ 
+ 	private final Map<Class<? extends Annotation>, Optional<Annotation>> annotationCache;
+ 	private final Map<Class<? extends Annotation>, Set<? extends Annotation>> repeatableAnnotationCache;
+-
++	private Boolean singleCollectionForMultipleClasses;
++	
+ 	public DefaultArangoPersistentEntity(final TypeInformation<T> information) {
+ 		super(information);
+ 		collection = StringUtils.uncapitalize(information.getType().getSimpleName());
+@@ -125,9 +127,6 @@ public class DefaultArangoPersistentEntity<T> extends BasicPersistentEntity<T, A
+ 		if (annotation.replicationFactor() > -1) {
+ 			options.replicationFactor(annotation.replicationFactor());
+ 		}
+-		if (annotation.satellite()) {
+-			options.satellite(annotation.satellite());
+-		}
+ 		final String[] shardKeys = annotation.shardKeys();
+ 		if (shardKeys.length > 1 || (shardKeys.length > 0 && StringUtils.hasText(shardKeys[0]))) {
+ 			options.shardKeys(shardKeys);
+@@ -298,4 +297,18 @@ public class DefaultArangoPersistentEntity<T> extends BasicPersistentEntity<T, A
+ 		return (Set<A>) repeatableAnnotationCache.computeIfAbsent(annotationType,
+ 			it -> AnnotatedElementUtils.findMergedRepeatableAnnotations(getType(), it));
+ 	}
++
++	/**
++	 * {@inheritDoc}
++	 */
++	public Boolean getSingleCollectionForMultipleClasses() {
++		return singleCollectionForMultipleClasses;
++	}
++
++	/**
++	 * {@inheritDoc}
++	 */
++	public void setSingleCollectionForMultipleClasses(Boolean singleCollectionForMultipleClasses) {
++		this.singleCollectionForMultipleClasses = singleCollectionForMultipleClasses;
++	}
+ }
+diff --git a/src/main/java/com/arangodb/springframework/core/util/InheritanceUtils.java b/src/main/java/com/arangodb/springframework/core/util/InheritanceUtils.java
+new file mode 100644
+index 0000000..20cbb77
+--- /dev/null
++++ b/src/main/java/com/arangodb/springframework/core/util/InheritanceUtils.java
+@@ -0,0 +1,155 @@
++/**
++ * 
++ */
++package com.arangodb.springframework.core.util;
++
++import java.util.Collection;
++import java.util.List;
++import java.util.Set;
++
++import org.springframework.data.mapping.PersistentEntity;
++import org.springframework.data.mapping.context.MappingContext;
++
++import com.arangodb.springframework.annotation.Document;
++import com.arangodb.springframework.config.ArangoEntityClassScanner;
++import com.arangodb.springframework.core.mapping.ArangoPersistentEntity;
++import com.arangodb.springframework.core.mapping.ArangoPersistentProperty;
++
++/**
++ * Utilities to facilitate support for inheritance in persisted entities (following DRY principles, & other best practices). At present it is used for optimal 
++ * support of inheritance in associations involving classes that have a declared @Document annotation that are persisted in a dedicated collection 
++ * (this is similar to TABLE_PER_CLASS type of inheritance in JPA) (including support for associations of a {@link Collection} type).
++ * E.g., this helps having clean records of entities (with inheritance): <br/>
++ *  {"mainSkill":"Java","name":"Reşat"} <br/>
++ * as opposed to <br/>
++ *  {"_class":"com.arangodb.springframework.core.convert.InheritanceSupportTest$DeveloperSubclass","mainSkill":"Perl","name":"Kevin"}
++ * 
++ * @author Reşat SABIQ
++ */
++// This approach is superior to was merged after this push request (18) was submitted as part of pull request 33, because that pull request stores fully-qualified 
++// class name for each record (with or without inheritance) which is completely unnecessary for classes that have a declared @Document annotation that are 
++// persisted in a dedicated collection, because there is already an entire COLLECTION/TABLE dedicated to the class involved. 
++// Thus, by comparison, this approach optimizes:
++// 1. disk space, 
++// 2. memory, 
++// 3. bandwidth & 
++// 4. CPU usage, 
++// 5. avoids additional operating expenses (due to the above), 
++// 6. avoids extreme visual clutter when looking at the data, 
++// 7. & its likely negative effects on productivity, 
++// 8. doesn't entail unnecessary tight-coupling of DB records to Java classes, and 
++// 9. avoids any potential negative impact on latency
++// by not having to deal with unnecessary overhead entailed by processing, storage, & retrieval of a lot of unnecessary data.
++// Down the road, this approach could also facilitate optimal implementations for other main-stream inheritance types in associations.
++public class InheritanceUtils {
++	// (Something like) this could even be made configurable (via arangodb.properties):
++	private static final boolean QUASI_BRUTE_FORCE_SCANNING_INSTEAD_OF_EXCEPTION_4_INHERITANCE_SUPPORT = true;
++	private static final PackageHelper packageHelper = PackageHelper.getInstance();
++	
++	private InheritanceUtils() {}
++	
++	/**
++	 * Finds the (sub)type best matching the reference Id containing the actual type name. 
++	 * The (sub)type found has the same class name as that contained in {@code source},
++	 * & is of the same type as or extends the type of {@code property}.
++	 * 
++	 * @param source		Type-containing reference id.
++	 * @param propertyType	Reference property type.
++	 * @param context		Mapping context to check while matching.
++	 * 
++	 * @return	The (sub)type best matching {@code source}. In cases with single-collection for multiple classes, this is not guaranteed to be the exact match 
++	 * 			(which needs to be determined based on persisted type info).
++	 */
++	public static Class<?> determineInheritanceAwareReferenceType(
++		final Object source,
++		final Class<?> propertyType,
++		final MappingContext<? extends ArangoPersistentEntity<?>, ArangoPersistentProperty> context) {
++		Class<?> type = null;
++		String src = source.toString();
++		String entityName = MetadataUtils.determineCollectionFromId(src);
++		// At present, a subclass would quite likely have a simple class name reflected in Id that is different from the property's (compile-time) type name (ignoring case):
++		handleInheritance:
++		if (!verifyMatch(propertyType, entityName)) {
++			// Find the matching entity in the context:
++			for (PersistentEntity<?,?> entityNode : context.getPersistentEntities()) {
++				if (verifyMatch(entityNode.getType(), entityName)) {
++					// This is the type of the subclass that's needed for inheritance support:
++					type = entityNode.getType();
++					break handleInheritance;
++				}
++			}
++			
++			/* It's not in context: search step-by-step so that we stop sooner rather than later: */
++			// 1. Check same & child packages (sub-classes would most likely be found this way)
++			Package samePackage = propertyType.getPackage();
++			type = findAssignablesReflectively(samePackage.getName(), entityName, propertyType);
++			if (type == null) {
++				String parentPackage = samePackage.getName().substring(0, samePackage.getName().lastIndexOf('.'));
++				// 2. Check parent & sibling packages (& sub-packages)
++				type = findAssignablesReflectively(parentPackage, entityName, propertyType);
++				if (type == null) {
++					// 3. Quasi-brute-force:
++					if (QUASI_BRUTE_FORCE_SCANNING_INSTEAD_OF_EXCEPTION_4_INHERITANCE_SUPPORT) {
++						List<String> packagesWorthScanning = packageHelper.getAllPackagesWorthScanning();
++						for (String tld : packagesWorthScanning) {
++							type = findAssignablesReflectively(tld, entityName, propertyType);
++							if (type != null)
++								break;
++						}
++					} else // CHECKME: Consider whether to throw an exception like the one below instead of quasi-brute-force scanning (which could take .3 seconds or so)
++						throw new IllegalStateException("Please add the package for \"" +entityName+ "\" to the list of base packages to be scanned when configuring ArangoDB spring-data");
++
++				}
++			}
++		}
++		if (type == null) // no subclass involved
++			type = propertyType;
++		return type; // This would be a bit lighter on CPU, but would involve a bit more GC: Pair.of(type, inContext ? Boolean.TRUE : Boolean.FALSE);
++	}
++
++	/**
++	 * Reflectively finds match assignable to {@code property}'s type.
++	 * 
++	 * @param basePackage	package to start searching under.
++	 * @param entityName	entity name to search for.
++	 * @param property		property to whose type the matches must be assignable.
++	 * 
++	 * @return	valid match or null.
++	 */
++	private static Class<?> findAssignablesReflectively(
++			final String basePackage, 
++			final String entityName,
++			final Class<?> propertyType) {
++		try {
++			Set<Class<?>> subTypes = ArangoEntityClassScanner.scanForEntities(propertyType, basePackage);
++//			if (subTypes != null) // doesn't return null
++				for (Class<?> klass : subTypes)
++					if (verifyMatch(klass, entityName))
++						return klass;
++		} catch (ClassNotFoundException e) { // shouldn't happen in real-world
++			e.printStackTrace();
++		}
++		return null;
++	}
++	
++	/**
++	 * Verifies that {@code candidateType} is a {@link Document}, whose explicit or implicit document/entity name matches {@code entityName}.
++	 * 
++	 * @param candidateType	candidate type to verify.
++	 * @param entityName	entity name to match.
++	 * 
++	 * @return	true if a valid {@link Document} match, false otherwise.
++	 */
++	private static boolean verifyMatch(final Class<?> candidateType, final String entityName) {
++		Document doc = candidateType.getAnnotation(Document.class);
++		if (doc != null) {
++			// First compare with explicit (annotation) name, then with implicit (class) name:
++			if (entityName.equals(doc.value()))
++				return true;
++			String name = candidateType.getSimpleName();
++			name = Character.toLowerCase(name.charAt(1)) + name.substring(1);
++			return entityName.equals(name);
++		}
++		return false;
++	}
++}
+diff --git a/src/main/java/com/arangodb/springframework/core/util/PackageHelper.java b/src/main/java/com/arangodb/springframework/core/util/PackageHelper.java
+new file mode 100644
+index 0000000..170d60a
+--- /dev/null
++++ b/src/main/java/com/arangodb/springframework/core/util/PackageHelper.java
+@@ -0,0 +1,100 @@
++/**
++ * 
++ */
++package com.arangodb.springframework.core.util;
++
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++
++/**
++ * Useful to be able to do a quasi-brute-force scan: i.e., a scan that includes everything but the packages that are known ahead of time to not need to be scanned.
++ * An example of the difference this could make: a brute-force scanning could take 2+ seconds, whereas a quasi-brute-force scanning could take .35 seconds (on 
++ * an average-capacity development box with a web app coded for deployment on a JEE application server).
++ * 
++ * @author Reşat SABIQ
++ */
++public class PackageHelper {
++	private static final int PACKAGES_WORTH_SCANNING_ESTIMATED_COLLECTION_SIZE = 5;
++	
++	private static PackageHelper singleton;
++	
++	// Additional entries could of course be added going forward (entries only applicable at testing time probably don't need to be included).
++	// Have to be alphabetically sorted (improves performance):
++	private String[] topLevelPackageArray = {"antlr", "java", "javax", "jdk", "oracle", "sun"};
++	private String[] frameworksArray =		{"ch.qos", "org.aopalliance", "org.apache", "org.codehaus", "org.eclipse", "org.hibernate", "org.joda", "org.json", "org.junit", 
++			"org.omg", "org.slf4j", "org.springframework", "org.xml"};
++	private String[] companiesArray =		{"com.google", "com.ibm", "com.sun"};
++	private String[] appServersArray =		{"fish.payara", "org.glassfish", "org.jboss"};
++	private String[] dbArray =				{"com.arangodb" };
++	private String[][] scanningUnnecessaryArrays = {frameworksArray, companiesArray, appServersArray, dbArray};
++	
++	public static PackageHelper getInstance() {
++		if (singleton == null)
++			synchronized (PackageHelper.class) {
++				if (singleton == null)
++					singleton = new PackageHelper();
++			}
++		return singleton;
++	}
++
++	private PackageHelper() {}
++	
++	/**
++	 * Checks if scanning is necessary for {@code packageStartsWith}.
++	 * 
++	 * @param packageStartsWith	(Sub)string that a package starts with. Precondition: this method at present expects {@code packageStartsWith} to have 2 levels.
++	 * 
++	 * @return	false if {@code packageStartsWith} is among packages that this class has been set up to treat as those that scanning is unnecessary for (e.g., 
++	 * 				"org.apache"), true otherwise.
++	 */
++	// Add input pre-processing/validation before making this method public, if that's ever needed
++	protected boolean isScanningNecessary(String packageStartsWith) {
++		for (String[] array : scanningUnnecessaryArrays) {
++			if (Arrays.binarySearch(array, packageStartsWith) >= 0)
++				return false;
++		}
++		return true;
++	}
++
++	/**
++	 * Checks if scanning is potentially necessary for {@code topLevelPackage}.
++	 * 
++	 * @param topLevelPackage	Top level package name. Precondition: {@code topLevelPackage} is indeed a top-level package.
++	 * 
++	 * @return	false if {@code topLevelPackage} is among packages that this class has been set up to treat as those that scanning is unnecessary for (e.g., 
++	 * 				"java"), true otherwise.
++	 */
++	// Add input pre-processing/validation before making this method public, if that's ever needed
++	protected boolean isScanningPotentiallyNeccessaryForTopLevelPackage(String topLevelPackage) {
++		if (Arrays.binarySearch(topLevelPackageArray, topLevelPackage) >= 0)
++			return false;
++		return true;
++	}
++
++	/**
++	 * Provides all packages that it might be worth scanning for entities.
++	 * 
++	 * @return	All packages except those that this class has been set up to treat as those that scanning is unnecessary for (e.g., 
++	 * 				"java", & "org.apache").
++	 */
++	public List<String> getAllPackagesWorthScanning() {
++		Package[] packages = Package.getPackages();
++		// Perhaps this could be further micro-optimized to have a smaller memory foot-print than TreeMap in most cases:
++		List<String> packagesList = new ArrayList<String>(PACKAGES_WORTH_SCANNING_ESTIMATED_COLLECTION_SIZE);
++		for (Package paquet : packages) {
++			String name = paquet.getName();
++			int topLevelIndex = name.indexOf('.');
++			String topLevel = name.substring(0, topLevelIndex);
++			if (isScanningPotentiallyNeccessaryForTopLevelPackage(topLevel)) {
++				int index = name.indexOf('.', topLevelIndex+1);
++				String packageStartsWith = index > -1 ? name.substring(0, index) : name;
++				int insertionPoint;
++				if (isScanningNecessary(packageStartsWith) && (insertionPoint = Collections.binarySearch(packagesList, packageStartsWith)) < 0)
++					packagesList.add((insertionPoint+1)*-1, packageStartsWith);
++			}
++		}
++		return packagesList;
++	}
++}
+diff --git a/src/test/java/com/arangodb/springframework/core/convert/InheritanceSupportForClassesNotDeclaringDocumentAnnotationTest.java b/src/test/java/com/arangodb/springframework/core/convert/InheritanceSupportForClassesNotDeclaringDocumentAnnotationTest.java
+new file mode 100644
+index 0000000..4a63a05
+--- /dev/null
++++ b/src/test/java/com/arangodb/springframework/core/convert/InheritanceSupportForClassesNotDeclaringDocumentAnnotationTest.java
+@@ -0,0 +1,102 @@
++package com.arangodb.springframework.core.convert;
++
++import static org.hamcrest.Matchers.is;
++import static org.hamcrest.Matchers.notNullValue;
++import static org.junit.Assert.assertThat;
++import static org.junit.Assert.assertTrue;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.springframework.data.annotation.Id;
++import org.springframework.test.context.ContextConfiguration;
++import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
++
++import com.arangodb.entity.DocumentEntity;
++import com.arangodb.springframework.AbstractArangoTest;
++import com.arangodb.springframework.ArangoTestConfiguration;
++import com.arangodb.springframework.annotation.Document;
++
++@RunWith(SpringJUnit4ClassRunner.class)
++@ContextConfiguration(classes = { ArangoTestConfiguration.class })
++public class InheritanceSupportForClassesNotDeclaringDocumentAnnotationTest extends AbstractArangoTest {
++	@Document("parents")
++	public static class Parent {
++		@Id
++		private String id;
++		private String name;
++		
++		public Parent(String name) {
++			super();
++			this.name = name;
++		}
++
++		public String getId() {
++			return id;
++		}
++		
++		public String getName() {
++			return name;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (obj == null)
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++
++			Parent other = (Parent) obj;
++			if (name == null) {
++				if (other.name != null)
++					return false;
++			} else if (!name.equals(other.name))
++				return false;
++			return true;
++		}
++	}
++	
++	public static class Child extends Parent {
++		private String extra;
++		
++		public Child(String name, String extra) {
++			super(name);
++			this.extra = extra;
++		}
++
++		public String getExtra() {
++			return extra;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (obj == null)
++				return false;
++			if (!super.equals(obj))
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++			Child other = (Child) obj;
++			if (extra == null) {
++				if (other.extra != null)
++					return false;
++			} else if (!extra.equals(other.extra))
++				return false;
++			return true;
++		}
++	}
++
++	@Test
++	public void itIsPossibleToPersistAClassThatDoesNotHaveADeclaredDocumentAnnotation() {
++		Child orig = new Child("Excessive", "flexibility");
++		final DocumentEntity ref = template.insert(orig);
++		final Child entity = template.find(ref.getId(), Child.class).get();
++		
++		assertThat(entity, is(notNullValue()));
++		assertThat(entity.getId(), is(ref.getId()));
++		assertTrue(entity.equals(orig));
++	}
++}
+diff --git a/src/test/java/com/arangodb/springframework/core/mapping/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest.java b/src/test/java/com/arangodb/springframework/core/mapping/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest.java
+new file mode 100644
+index 0000000..35a8027
+--- /dev/null
++++ b/src/test/java/com/arangodb/springframework/core/mapping/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest.java
+@@ -0,0 +1,240 @@
++/**
++ * 
++ */
++package com.arangodb.springframework.core.mapping;
++
++import static org.hamcrest.Matchers.is;
++import static org.hamcrest.Matchers.notNullValue;
++import static org.junit.Assert.assertFalse;
++import static org.junit.Assert.assertThat;
++import static org.junit.Assert.assertTrue;
++
++import java.util.ArrayList;
++import java.util.Collection;
++import java.util.List;
++import java.util.Map;
++
++import org.junit.Test;
++import org.junit.runner.RunWith;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.data.annotation.Id;
++import org.springframework.test.context.ContextConfiguration;
++import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
++
++import com.arangodb.entity.DocumentEntity;
++import com.arangodb.springframework.AbstractArangoTest;
++import com.arangodb.springframework.ArangoTestConfiguration;
++import com.arangodb.springframework.annotation.Document;
++import com.arangodb.springframework.annotation.Field;
++import com.arangodb.springframework.annotation.Ref;
++import com.arangodb.springframework.core.convert.DefaultArangoTypeMapper;
++import com.arangodb.springframework.repository.InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository;
++
++/**
++ * @author Reşat SABIQ
++ *
++ */
++@RunWith(SpringJUnit4ClassRunner.class)
++@ContextConfiguration(classes = { ArangoTestConfiguration.class })
++public class InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest extends AbstractArangoTest {
++	@Autowired
++	InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository inheritanceSupportRepository;
++	
++	public static abstract class Base {
++		@Id
++		private String id;
++
++		public String getId() {
++			return id;
++		}
++	}
++
++	@Document("person")
++	public static class PersonSuperClass extends Base {
++		private String name;
++		
++		public PersonSuperClass(String name) {
++			super();
++			this.name = name;
++		}
++
++		public String getName() {
++			return name;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (obj == null)
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++
++			PersonSuperClass other = (PersonSuperClass) obj;
++			if (name == null) {
++				if (other.name != null)
++					return false;
++			} else if (!name.equals(other.name))
++				return false;
++			return true;
++		}
++	}
++
++	@Document("developer")
++	public static class DeveloperSubclass extends PersonSuperClass {
++		@Field("mainSkill")
++		private String mainDevelopmentSkill;
++
++		public DeveloperSubclass(String name, String mainDevelopmentSkill) {
++			super(name);
++			this.mainDevelopmentSkill = mainDevelopmentSkill;
++		}
++
++		public String getMainDevelopmentSkill() {
++			return mainDevelopmentSkill;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (!super.equals(obj))
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++
++			DeveloperSubclass other = (DeveloperSubclass) obj;
++			if (mainDevelopmentSkill == null) {
++				if (other.mainDevelopmentSkill != null)
++					return false;
++			} else if (!mainDevelopmentSkill.equals(other.mainDevelopmentSkill))
++				return false;
++			return true;
++		}
++	}
++	
++	@Document
++	public static class Aggregate extends Base {
++		@Ref(lazy=false)
++		private PersonSuperClass developerSubclassInstance;
++
++		public Aggregate() {
++		}
++		
++		public Aggregate(PersonSuperClass developerSubclassInstance) {
++			super();
++			this.developerSubclassInstance = developerSubclassInstance;
++		}
++
++		public PersonSuperClass getPerson() {
++			return developerSubclassInstance;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (obj == null)
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++			Aggregate other = (Aggregate) obj;
++			
++			if (developerSubclassInstance == null) {
++				if (other.developerSubclassInstance != null)
++					return false;
++			} else if (!developerSubclassInstance.equals(other.developerSubclassInstance))
++				return false;
++			return true;
++		}
++	}
++	
++	@Document
++	public static class AggregateWithCollection extends Base {
++		@Ref(lazy=false)
++		private Collection<PersonSuperClass> personsIncludingDevelopers;
++
++		public AggregateWithCollection() {
++		}
++		public AggregateWithCollection(Collection<PersonSuperClass> personsAndDevelopers) {
++			this.personsIncludingDevelopers = personsAndDevelopers;
++		}
++
++		public Collection<PersonSuperClass> getPersonsIncludingDevelopers() {
++			return personsIncludingDevelopers;
++		}
++
++		@Override
++		public boolean equals(Object obj) {
++			if (this == obj)
++				return true;
++			if (obj == null)
++				return false;
++			if (getClass() != obj.getClass())
++				return false;
++			AggregateWithCollection other = (AggregateWithCollection) obj;
++
++			if (personsIncludingDevelopers == null) {
++				if (other.personsIncludingDevelopers != null)
++					return false;
++			} else if (!personsIncludingDevelopers.equals(other.personsIncludingDevelopers))
++				return false;
++			return true;
++		}
++	}
++	
++	@Test
++	public void coreCollectionPerClassTypeInheritanceSupport() {
++		PersonSuperClass subclassInstance = new DeveloperSubclass("Reşat", "Java");
++		Aggregate orig = new Aggregate(subclassInstance);
++		template.insert(subclassInstance);
++		final DocumentEntity ref = template.insert(orig);
++		final Aggregate entity = template.find(ref.getId(), Aggregate.class).get();
++		
++		assertThat(entity, is(notNullValue()));
++		assertTrue("Subclass should be auto-retrieved after it had been persisted", entity.getPerson().getClass().equals(orig.getPerson().getClass()));
++		assertThat(entity.getId(), is(ref.getId()));
++		assertTrue(entity.equals(orig));
++	}
++	
++	@Test
++	public void collectionPerClassTypeInheritanceSupportForCollections() {
++		PersonSuperClass subclassInstance = new DeveloperSubclass("Reşat", "Java");
++		PersonSuperClass superClassInstance = new PersonSuperClass("İsxaq");
++		List<PersonSuperClass> instances = new ArrayList<PersonSuperClass>();
++		instances.add(subclassInstance);
++		instances.add(superClassInstance);
++		AggregateWithCollection orig = new AggregateWithCollection(instances);
++		template.insert(subclassInstance);
++		template.insert(superClassInstance);
++		final DocumentEntity ref = template.insert(orig);
++		final AggregateWithCollection entity = template.find(ref.getId(), AggregateWithCollection.class).get();
++		assertThat(entity, is(notNullValue()));
++		Collection<PersonSuperClass> retrievedChildren = entity.getPersonsIncludingDevelopers();
++		int subclassCount = 0, parentClassCount = 0;
++		for (PersonSuperClass c : retrievedChildren) {
++			if (c instanceof DeveloperSubclass)
++				subclassCount++;
++			else
++				parentClassCount++;
++		}
++		assertTrue(subclassCount == 1);
++		assertTrue(parentClassCount == 1);
++		assertThat(entity.getId(), is(ref.getId()));
++		assertTrue(entity.equals(orig));
++	}
++
++	/**
++	 * This tests that unnecessary data is not persisted for TABLE/COLLECTION_PER_CLASS type inheritance (as has been recently introduced by a merge).
++	 */
++	@Test
++	public void ensureThatCollectionPerClassTypeMainstreamInheritanceImplementationIsOptimal() {
++		PersonSuperClass person = new PersonSuperClass("Reşat");
++		template.insert(person);
++		final Map<String, Object> retrieved = inheritanceSupportRepository.findOne(person.getId());
++		
++		assertFalse("There is no need for storing type data as a property/column for TABLE/COLLECTION_PER_CLASS type of inheritance", 
++				retrieved.containsKey(DefaultArangoTypeMapper.DEFAULT_TYPE_KEY));
++	}
++}
+diff --git a/src/test/java/com/arangodb/springframework/core/util/PackageHelperTest.java b/src/test/java/com/arangodb/springframework/core/util/PackageHelperTest.java
+new file mode 100644
+index 0000000..4067994
+--- /dev/null
++++ b/src/test/java/com/arangodb/springframework/core/util/PackageHelperTest.java
+@@ -0,0 +1,58 @@
++/**
++ * 
++ */
++package com.arangodb.springframework.core.util;
++
++import java.util.List;
++
++import org.junit.Assert;
++import org.junit.Test;
++
++/**
++ * @author Reşat SABIQ
++ *
++ */
++public class PackageHelperTest {
++	PackageHelper packageHelper = PackageHelper.getInstance();
++
++	/**
++	 * Test method for {@link com.arangodb.springframework.core.util.PackageHelper#isScanningPotentiallyNeccessaryForTopLevelPackage(java.lang.String)}.
++	 */
++	@Test
++	public void testIsScanningPotentiallyNeccessaryForTopLevelPackage() {
++		Assert.assertTrue(packageHelper.isScanningPotentiallyNeccessaryForTopLevelPackage("custom"));
++	}
++
++	/**
++	 * Test method for {@link com.arangodb.springframework.core.util.PackageHelper#isScanningNecessary(String)}.
++	 */
++	@Test 
++	public void testIsScanningNecessary() {
++		Assert.assertTrue(packageHelper.isScanningNecessary("com.custom"));
++	}
++
++	/**
++	 * Test method for {@link com.arangodb.springframework.core.util.PackageHelper#isScanningNecessary(String)}.
++	 */
++	@Test 
++	public void scanningUnnecessary() {
++		Assert.assertFalse(packageHelper.isScanningNecessary("org.springframework"));
++	}
++
++	/**
++	 * Test method for {@link com.arangodb.springframework.core.util.PackageHelper#isScanningPotentiallyNeccessaryForTopLevelPackage(java.lang.String)}.
++	 */
++	@Test
++	public void scanningUnneccessaryForTopLevelPackage() {
++		Assert.assertFalse(packageHelper.isScanningPotentiallyNeccessaryForTopLevelPackage("javax"));
++	}
++
++	/**
++	 * Test method for {@link com.arangodb.springframework.core.util.PackageHelper#getAllPackagesWorthScanning()}.
++	 */
++	@Test
++	public void getAllPackagesWorthScanning() {
++		List<String> packages = packageHelper.getAllPackagesWorthScanning();
++		Assert.assertFalse(packages.contains("java.util"));
++	}
++}
+diff --git a/src/test/java/com/arangodb/springframework/repository/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository.java b/src/test/java/com/arangodb/springframework/repository/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository.java
+new file mode 100644
+index 0000000..4b26c26
+--- /dev/null
++++ b/src/test/java/com/arangodb/springframework/repository/InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository.java
+@@ -0,0 +1,17 @@
++package com.arangodb.springframework.repository;
++
++import java.util.Map;
++
++import org.springframework.data.repository.query.Param;
++
++import com.arangodb.springframework.annotation.Query;
++import com.arangodb.springframework.core.mapping.InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest;
++
++/**
++ * 
++ * @author Reşat SABIQ
++ */
++public interface InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataRepository extends ArangoRepository<InheritanceMappingFocusingOnClassesNotRequiringPersistenceOfTypeDataTest.PersonSuperClass> {
++	@Query("FOR p IN person FILTER p._id == @id RETURN p")
++	Map<String, Object> findOne(@Param("id") String id);
++}
+diff --git a/src/test/java/com/arangodb/springframework/repository/query/graphtraversal/GraphTraversalWithVariousDepthsAndDirectionsTest.java b/src/test/java/com/arangodb/springframework/repository/query/graphtraversal/GraphTraversalWithVariousDepthsAndDirectionsTest.java
+index f466630..ad25e18 100644
+--- a/src/test/java/com/arangodb/springframework/repository/query/graphtraversal/GraphTraversalWithVariousDepthsAndDirectionsTest.java
++++ b/src/test/java/com/arangodb/springframework/repository/query/graphtraversal/GraphTraversalWithVariousDepthsAndDirectionsTest.java
+@@ -99,6 +99,7 @@ public class GraphTraversalWithVariousDepthsAndDirectionsTest extends AbstractAr
+ 				});
+ 			});
+ 		});
++		
+ 		findByExample(jon).ifPresent(jonSnow -> {
+ 			findByExample(jaimie).ifPresent(jaimieLanister -> {
+ 				findByExample(emily).ifPresent(emilySnow -> {
+diff --git a/src/test/resources/arangodb.properties b/src/test/resources/arangodb.properties
+index 5682618..294c0bf 100644
+--- a/src/test/resources/arangodb.properties
++++ b/src/test/resources/arangodb.properties
+@@ -1 +1,2 @@
+ arangodb.hosts=127.0.0.1:8529
++# so that the tests can be 100% successful, the setup must be such that the DB is auto-droppable
