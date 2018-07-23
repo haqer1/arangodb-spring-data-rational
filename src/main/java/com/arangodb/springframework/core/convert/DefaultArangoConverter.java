@@ -61,7 +61,6 @@ import com.arangodb.springframework.core.mapping.ArangoPersistentEntity;
 import com.arangodb.springframework.core.mapping.ArangoPersistentProperty;
 import com.arangodb.springframework.core.mapping.ArangoSimpleTypes;
 import com.arangodb.springframework.core.util.InheritanceUtils;
-import com.arangodb.springframework.core.util.MetadataUtils;
 
 /**
  * @author Mark Vollmary
@@ -73,6 +72,8 @@ public class DefaultArangoConverter implements ArangoConverter {
 
 	private static final String _ID = "_id";
 	private static final String _KEY = "_key";
+	private static final boolean HANDLE_SINGLE_COLLECTION_FOR_MULTIPLE_CLASSES_BASED_ON_DOCUMENT_NAMES = true;
+	
 	private final MappingContext<? extends ArangoPersistentEntity<?>, ArangoPersistentProperty> context;
 	private final CustomConversions conversions;
 	private final GenericConversionService conversionService;
@@ -574,6 +575,8 @@ public class DefaultArangoConverter implements ArangoConverter {
 	}
 
 	private boolean isSingleCollectionForMultipleClasses(final Class<?> type) {
+		if (!HANDLE_SINGLE_COLLECTION_FOR_MULTIPLE_CLASSES_BASED_ON_DOCUMENT_NAMES)
+			return false;
 		Document doc = type.getAnnotation(Document.class);
 		if (doc == null)
 			return false;

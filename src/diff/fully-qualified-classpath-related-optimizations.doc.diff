@@ -1,10 +1,23 @@
 diff --git a/ChangeLog.md b/ChangeLog.md
-index 8ee5ad1..d200825 100644
+index 5d5a668..d2a9a9c 100644
 --- a/ChangeLog.md
 +++ b/ChangeLog.md
 @@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  
  ## [Unreleased]
+ 
++## [2.3.0.1] (-rational) - 2018-07-23
++
++### Enhanced
++* merged: optimization for edges and graph traversals
++* merged: major optimization for classes with declared @Document annotation (in comparison to upstream (including support for multiple classes per single collection))
++
+ ## [2.3.0] - 2018-07-18
+ 
+ ### Deprecated
+@@ -20,6 +26,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
+ 
+ - fixed `ArangoOperations#getVersion()` use configured database instead of \_system
  
 +## [2.2.1.1] (-rational) - 2018-07-09
 +
@@ -15,7 +28,7 @@ index 8ee5ad1..d200825 100644
  ## [2.2.1] - 2018-07-03
  
  ### Fixed
-@@ -41,6 +47,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
+@@ -55,6 +67,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - deprecated `ArangoOperations#upsert(T, UpsertStrategy)`
  - deprecated `ArangoOperations#upsert(Iterable<T>, UpsertStrategy)`
  
@@ -28,7 +41,7 @@ index 8ee5ad1..d200825 100644
  ## [2.1.9] - 2018-06-26
  
  ### Fixed
-@@ -55,6 +67,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
+@@ -69,6 +87,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
    - fixed `ArangoDB#aquireHostList(true)` with authentication
    - added support for custom serializer
  
@@ -44,10 +57,10 @@ index 8ee5ad1..d200825 100644
  
  ### Changed
 diff --git a/README.md b/README.md
-index 9b99835..aa6afeb 100644
+index 9b99835..329cf28 100644
 --- a/README.md
 +++ b/README.md
-@@ -1,6 +1,165 @@
+@@ -1,6 +1,167 @@
  ![ArangoDB-Logo](https://docs.arangodb.com/assets/arangodb_logo_2016_inverted.png)
  
 -# Spring Data ArangoDB
@@ -173,6 +186,8 @@ index 9b99835..aa6afeb 100644
 +(i.e., 3 documents as in example 2. + 5 more for the list). Thus smaller size per record provides a cumulative effect for operations involving JOINs or multiple records matching a query, etc. (with propagating efficiencies & benefits in terms of memory, bandwidth, CPU, latency, operational expenses, productivity, 
 +as well as visual & perceptional aspects (simpler due to less clutter, less ambiguous), etc.).
 +
++3. For a graph of x entities with x edges, the effect would also be cumulative (the effect for x entities AND the effect for x edges): potentially doubling some of the effects (e.g., amount of storage used) for graph traversal use-cases.
++
 +### <a id="calc"></a>Cumulative efficiencies: simple sample calculations for various numbers of persisted entities
 +Assuming average record size difference to be as shown in example above for [single record](#single):
 +![Alt text](docs/include/img/efficiencies.png?raw=true "Efficiencies")
@@ -185,7 +200,7 @@ index 9b99835..aa6afeb 100644
 +[Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/modified/surefire-report.html)
 +[Upstream (original)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/original/surefire-report.html)
 +[Diff](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/v2.1.7/auto-testing/diff/)
-+**Feel free to repeat the steps shown in Diff using 2.2.1 (upstream) & 2.2.1.1 (-rational) tags.**
++**Feel free to repeat the steps shown in Diff using 2.3.0 (upstream) & 2.3.0.1 (-rational) tags.**
 +
 +### Optimization for edges and graph traversal branch
 +[Modified (branch)](https://haqer1.github.io/arangodb-spring-data-rational/docs/branch/optimization_for_edges_and_graph_traversal/auto-testing/modified/surefire-report.html)
@@ -209,9 +224,8 @@ index 9b99835..aa6afeb 100644
 +alternative PR had been clearly shown, the maintainer of ArangoDB Spring Data refused to merge the original pull request (which had been updated to avoid persistence of the fully-qualified
 +class name for @Documents (because it's unnecessary & causes many issues & inefficiencies), leaving other cases as is (i.e., leaving them up to whatever ArangoDB Spring Data in general 
 +wants to do with them (such as based on the alternative PR))), & closed it on May 22nd. To make it clear, the developer of this fork never made a request to not merge the alternative PR, 
-+or to revert it: but the other developer requested the contributions here to not be merged, & that's how the PR got closed by the maintainer. Thus, to have rational
-+support for canonical COLLECTION-PER-CLASS type of inheritance, there is a need for a customized implementation.
++or to revert it: but the other developer requested the contributions here to not be merged, & that's how the PR got closed by the maintainer. The maintainer also has taken (on July 2, 2018) an [insane position](https://github.com/arangodb/spring-data/issues/71) of refusing to accept a PR that removes fully-qualified class name storage, retrieval, & processing for `@Edge`s without having been able to provide a single (!) use-case for which fully-qualified class names need to be stored for `@Edge`s. Thus, to have
++a rational mapping implementation for ArangoDB spring-data, there is a need for an alternative implementation: hence, this project.
  
  [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.arangodb/arangodb-spring-data)
  
-

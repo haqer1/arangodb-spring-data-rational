@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [2.3.0.1] (-rational) - 2018-07-23
+
+### Enhanced
+* merged: optimization for edges and graph traversals
+* merged: major optimization for classes with declared @Document annotation (in comparison to upstream (including support for multiple classes per single collection))
+
 ## [2.3.0] - 2018-07-18
 
 ### Deprecated
